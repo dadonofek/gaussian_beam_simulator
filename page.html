@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaussian Beam Simulator</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h1>Interactive Gaussian Beam Simulator</h1>
+    <div id="plot"></div>
+
+    <script>
+        function calculateIntensityAndEnvelope(w0, wavelength) {
+            const z_R = Math.PI * w0**2 / wavelength;
+            const z = Array.from({length: 500}, (_, i) => -2*z_R + i*(4*z_R)/499);
+            const r = Array.from({length: 500}, (_, i) => -3*w0 + i*(6*w0)/499);
+            const Z = z.map(zi => Array(500).fill(zi));
+            const R = r.map(ri => Array(500).fill(ri));
+
+            const w_z = Z.map(z_arr => z_arr.map(zi => w0 * Math.sqrt(1 + (zi / z_R)**2)));
+            const intensity = R.map((r_arr, i) => r_arr.map((ri, j) => (w0 / w_z[i][j])**2 * Math.exp(-2 * ri**2 / w_z[i][j]**2)));
+
+            return { z, r, intensity, w_z, z_R };
+        }
+
+        const w0 = 1e-3;  // Initial beam waist
+        const wavelength = 500e-9;  // Initial wavelength
+        const { z, r, intensity, w_z, z_R } = calculateIntensityAndEnvelope(w0, wavelength);
+
+        const data = [
+            {
+                z: intensity,
+                x: z,
+                y: r,
+                type: 'heatmap',
+                colorscale: 'Inferno',
+                colorbar: { title: 'Intensity' }
+            },
+            {
+                x: z,
+                y: w_z.map(w_arr => w_arr[0]),
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: 'cyan' },
+                name: 'Upper Envelope'
+            },
+            {
+                x: z,
+                y: w_z.map(w_arr => -w_arr[0]),
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: 'cyan' },
+                name: 'Lower Envelope'
+            },
+            {
+                x: [-z_R, -z_R],
+                y: [r[0], r[r.length - 1]],
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: 'yellow', dash: 'dash' },
+                name: '-Rayleigh Range'
+            },
+            {
+                x: [z_R, z_R],
+                y: [r[0], r[r.length - 1]],
+                type: 'scatter',
+                mode: 'lines',
+                line: { color: 'yellow', dash: 'dash' },
+                name: '+Rayleigh Range'
+            }
+        ];
+
+        const layout = {
+            title: 'Gaussian Beam Side View with Envelope Line',
+            xaxis: { title: 'Propagation distance z (m)' },
+            yaxis: { title: 'Radial distance r (m)' },
+            autosize: true
+        };
+
+        Plotly.newPlot('plot', data, layout);
+    </script>
+</body>
+</html>
